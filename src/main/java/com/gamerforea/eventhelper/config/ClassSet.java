@@ -1,6 +1,6 @@
 package com.gamerforea.eventhelper.config;
 
-import com.gamerforea.eventhelper.EventHelperMod;
+import com.gamerforea.eventhelper.EventHelper;
 import com.google.common.base.Preconditions;
 
 import javax.annotation.Nonnull;
@@ -78,23 +78,21 @@ public final class ClassSet<T> implements Iterable<Class<? extends T>>
 
 	public void addRaw(@Nonnull Collection<String> classNames)
 	{
-		classNames.forEach(this::addRaw);
-	}
-
-	public void addRaw(@Nonnull String className)
-	{
-		try
+		for (String className : classNames)
 		{
-			Class<?> clazz = Class.forName(className);
-			if (this.baseClass.isAssignableFrom(clazz))
-				this.add((Class<? extends T>) clazz);
-			else if (EventHelperMod.debug)
-				EventHelperMod.LOGGER.warn("Class {} is not assignable from {}", className, this.baseClass.getName());
-		}
-		catch (ClassNotFoundException e)
-		{
-			if (EventHelperMod.debug)
-				EventHelperMod.LOGGER.warn("Class {} not found", className);
+			try
+			{
+				Class<?> clazz = Class.forName(className);
+				if (this.baseClass.isAssignableFrom(clazz))
+					this.add((Class<? extends T>) clazz);
+				else if (EventHelper.debug)
+					EventHelper.LOGGER.warn("Class {} is not assignable from {}", className, this.baseClass.getName());
+			}
+			catch (ClassNotFoundException e)
+			{
+				if (EventHelper.debug)
+					EventHelper.LOGGER.warn("Class {} not found", className);
+			}
 		}
 	}
 

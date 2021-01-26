@@ -1,6 +1,6 @@
 package com.gamerforea.eventhelper.config;
 
-import com.gamerforea.eventhelper.EventHelperMod;
+import com.gamerforea.eventhelper.EventHelper;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import net.minecraftforge.common.config.ConfigCategory;
@@ -12,8 +12,6 @@ import javax.annotation.Nullable;
 import java.io.File;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
 
@@ -22,7 +20,6 @@ public final class ConfigUtils
 	private static final String PACKAGE_DEFAULT = "default";
 	private static final Set<Class<?>> LOADED_CONFIG_CLASSES = new HashSet<>();
 
-	@Nonnull
 	public static Set<String> reloadAllConfigs()
 	{
 		Set<String> configNames = new TreeSet<>();
@@ -60,7 +57,7 @@ public final class ConfigUtils
 	@Nonnull
 	public static Configuration getConfig(@Nonnull String cfgName)
 	{
-		Configuration cfg = new Configuration(new File(EventHelperMod.CFG_DIR, cfgName + ".cfg"));
+		Configuration cfg = new Configuration(new File(EventHelper.cfgDir, cfgName + ".cfg"));
 		cfg.load();
 		return cfg;
 	}
@@ -86,7 +83,6 @@ public final class ConfigUtils
 			return;
 
 		Configuration cfg = getConfig(configName);
-
 		try
 		{
 			for (Field field : configClass.getDeclaredFields())
@@ -97,27 +93,14 @@ public final class ConfigUtils
 				}
 				catch (Throwable throwable)
 				{
-					EventHelperMod.LOGGER.error("Failed reading property {} in config {}", field, cfg.getConfigFile().getName(), throwable);
-				}
-			}
-
-			for (Method method : configClass.getDeclaredMethods())
-			{
-				try
-				{
-					invokeConfigLoadCallback(cfg, method);
-				}
-				catch (Throwable throwable)
-				{
-					EventHelperMod.LOGGER.error("Failed callback {} invocation in config {}", method, cfg.getConfigFile().getName(), throwable);
+					EventHelper.LOGGER.error("Failed reading property {} in config {}", field, cfg.getConfigFile().getName(), throwable);
 				}
 			}
 		}
 		catch (Throwable throwable)
 		{
-			EventHelperMod.LOGGER.error("Failed reading config {}", cfg.getConfigFile().getName(), throwable);
+			EventHelper.LOGGER.error("Failed reading config {}", cfg.getConfigFile().getName(), throwable);
 		}
-
 		cfg.save();
 	}
 
@@ -248,23 +231,6 @@ public final class ConfigUtils
 					readStringCollection(cfg, name, annotation.category(), annotation.comment(), collection);
 				}
 			}
-		}
-	}
-
-	private static void invokeConfigLoadCallback(@Nonnull Configuration cfg, @Nonnull Method method)
-			throws IllegalAccessException, InvocationTargetException
-	{
-		if (Modifier.isStatic(method.getModifiers()) && method.isAnnotationPresent(ConfigLoadCallback.class))
-		{
-			Class<?>[] parameterTypes = method.getParameterTypes();
-			if (parameterTypes.length > 1)
-				throw new IllegalArgumentException("Method " + method + " has @ConfigLoadCallback annotation, but requires " + parameterTypes.length + " arguments. Config load callback methods must require no more than one argument");
-			if (parameterTypes.length == 1 && parameterTypes[0] != Configuration.class)
-				throw new IllegalArgumentException("Method " + method + " has @ConfigLoadCallback annotation, but requires " + parameterTypes[0].getName() + " argument. Config load callback methods must require only Configuration argument");
-
-			Object[] args = parameterTypes.length == 0 ? new Object[0] : new Object[] { cfg };
-			method.setAccessible(true);
-			method.invoke(null, args);
 		}
 	}
 

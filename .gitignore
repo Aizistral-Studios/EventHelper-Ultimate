@@ -1,22 +1,14 @@
-# eclipse
-bin
-*.launch
+.git
+.gradle
 .settings
-.metadata
+bin
+build/c*
+build/d*
+build/r*
+build/s*
+build/t*
+eclipse
 .classpath
 .project
 
-# idea
-out
-*.ipr
-*.iws
-*.iml
-.idea
-
-# gradle
-build
-.gradle
-
-# other
-eclipse
-run
+forge*changelog.txt

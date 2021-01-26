@@ -1,23 +1,20 @@
 package com.gamerforea.eventhelper.config;
 
-import com.gamerforea.eventhelper.EventHelperMod;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.ints.IntSet;
+import com.gamerforea.eventhelper.EventHelper;
+import cpw.mods.fml.common.registry.FMLControlledNamespacedRegistry;
+import cpw.mods.fml.common.registry.GameData;
+import gnu.trove.set.TIntSet;
+import gnu.trove.set.hash.TIntHashSet;
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.registry.RegistryNamespaced;
-import net.minecraft.util.registry.RegistryNamespacedDefaultedByKey;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.*;
-import java.util.function.IntSupplier;
 
 public final class ItemBlockList
 {
@@ -26,8 +23,8 @@ public final class ItemBlockList
 	private static final int ALL_META = -1;
 
 	private final Set<String> rawSet = new HashSet<>();
-	private final Map<Item, IntSet> items = new HashMap<>();
-	private final Map<Block, IntSet> blocks = new HashMap<>();
+	private final Map<Item, TIntSet> items = new HashMap<>();
+	private final Map<Block, TIntSet> blocks = new HashMap<>();
 	private boolean loaded = true;
 
 	public ItemBlockList()
@@ -76,25 +73,7 @@ public final class ItemBlockList
 	public boolean contains(@Nonnull Item item, int meta)
 	{
 		this.load();
-		return item instanceof ItemBlock && this.contains(((ItemBlock) item).getBlock(), meta) || contains(this.items, item, meta);
-	}
-
-	public boolean contains(@Nonnull IBlockState blockState)
-	{
-		this.load();
-		Block block = blockState.getBlock();
-		// Lazy meta getter for better performance
-		return contains(this.blocks, block, () -> {
-			int meta = 0;
-			try
-			{
-				meta = block.getMetaFromState(blockState);
-			}
-			catch (Throwable ignored)
-			{
-			}
-			return meta;
-		});
+		return item instanceof ItemBlock && this.contains(((ItemBlock) item).field_150939_a, meta) || contains(this.items, item, meta);
 	}
 
 	public boolean contains(@Nonnull Block block, int meta)
@@ -109,8 +88,8 @@ public final class ItemBlockList
 		{
 			this.loaded = true;
 
-			RegistryNamespaced<ResourceLocation, Item> itemRegistry = Item.REGISTRY;
-			RegistryNamespacedDefaultedByKey<ResourceLocation, Block> blockRegistry = Block.REGISTRY;
+			FMLControlledNamespacedRegistry<Item> itemRegistry = GameData.getItemRegistry();
+			FMLControlledNamespacedRegistry<Block> blockRegistry = GameData.getBlockRegistry();
 
 			for (String s : this.rawSet)
 			{
@@ -122,40 +101,33 @@ public final class ItemBlockList
 					{
 						String name = parts[0];
 						int meta = parts.length > 1 ? safeParseInt(parts[1]) : ALL_META;
-						ResourceLocation resourceLocation = new ResourceLocation(name);
-						Item item = itemRegistry.getObject(resourceLocation);
+						Item item = itemRegistry.getObject(name);
 						if (item != null)
 							put(this.items, item, meta);
-						Block block = blockRegistry.getObject(resourceLocation);
-						if (block != Blocks.AIR)
+						Block block = blockRegistry.getObject(name);
+						if (block != null && block != Blocks.air)
 							put(this.blocks, block, meta);
 
-						if (EventHelperMod.debug && item == null && block == Blocks.AIR)
-							EventHelperMod.LOGGER.warn("Item/block {} not found", resourceLocation);
+						if (EventHelper.debug && item == null && (block == null || block == Blocks.air))
+							EventHelper.LOGGER.warn("Item/block {} not found", name);
 					}
 				}
 			}
 		}
 	}
 
-	private static <K> boolean put(Map<K, IntSet> map, K key, int value)
+	private static <K> boolean put(Map<K, TIntSet> map, K key, int value)
 	{
-		IntSet set = map.get(key);
+		TIntSet set = map.get(key);
 		if (set == null)
-			map.put(key, set = new IntOpenHashSet());
+			map.put(key, set = new TIntHashSet());
 		return set.add(value);
 	}
 
-	private static <K> boolean contains(Map<K, IntSet> map, K key, int value)
+	private static <K> boolean contains(Map<K, TIntSet> map, K key, int value)
 	{
-		IntSet set = map.get(key);
-		return set != null && (set.contains(ALL_META) || set.contains(value));
-	}
-
-	private static <K> boolean contains(Map<K, IntSet> map, K key, IntSupplier valueSupplier)
-	{
-		IntSet set = map.get(key);
-		return set != null && (set.contains(ALL_META) || set.contains(valueSupplier.getAsInt()));
+		TIntSet set = map.get(key);
+		return set != null && (set.contains(value) || set.contains(ALL_META));
 	}
 
 	private static int safeParseInt(String s)

@@ -1,208 +1,293 @@
 package com.gamerforea.eventhelper.util;
 
-import com.gamerforea.eventhelper.EventHelperMod;
-import com.gamerforea.eventhelper.cause.DummyCauseStackManager;
-import com.gamerforea.eventhelper.cause.ICauseStackManager;
-import com.gamerforea.eventhelper.integration.IIntegration;
-import com.gamerforea.eventhelper.integration.bukkit.BukkitIntegration;
-import com.gamerforea.eventhelper.integration.sponge.SpongeIntegration;
-import net.minecraft.block.state.IBlockState;
+import com.gamerforea.eventhelper.EventHelper;
+import com.gamerforea.eventhelper.inject.InjectionManager;
+import com.gamerforea.eventhelper.util.function.ThrowableFunction;
+import com.gamerforea.eventhelper.util.function.TriFunction;
+import com.google.common.base.Strings;
+import com.integral.eventhelperultimate.BuildController;
+import com.integral.eventhelperultimate.IntegrityHelper;
+
+import net.minecraft.command.server.CommandBanIp;
+import net.minecraft.command.server.CommandOp;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.item.ItemStack;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.World;
+import net.minecraftforge.common.util.ForgeDirection;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.entity.Player;
+import org.bukkit.event.Cancellable;
+import org.bukkit.event.Event;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockFromToEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
+import org.bukkit.event.entity.EntityTeleportEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 
 import javax.annotation.Nonnull;
-import java.util.Objects;
+import javax.annotation.Nullable;
 import java.util.UUID;
 
-import static com.gamerforea.eventhelper.EventHelperMod.LOGGER;
+import static com.gamerforea.eventhelper.util.ConvertUtils.*;
+import static com.integral.eventhelperultimate.BuildController.*;
+import static net.minecraft.util.MathHelper.floor_double;
 
-public final class EventUtils
-{
-	private static final IIntegration INTEGRATION;
+public final class EventUtils {
 
-	public static boolean cantBreak(@Nonnull EntityPlayer player, @Nonnull BlockPos pos)
-	{
-		try
-		{
-			return INTEGRATION.cantBreak(player, pos);
-		}
-		catch (Throwable throwable)
-		{
-			LOGGER.error("Failed call break block event: [Player: {}, Pos: {}]", player, pos);
-			if (EventHelperMod.debug)
-				throwable.printStackTrace();
+	public static boolean cantBreak(@Nonnull EntityPlayer player, int x, int y, int z) {
+		if (isDummyBuild)
+			return false;
+
+		try {
+			Player bPlayer = toBukkitEntity(player);
+			BlockBreakEvent event = new BlockBreakEvent(bPlayer.getWorld().getBlockAt(x, y, z), bPlayer);
+			EventHelper.callEvent(event);
+			return event.isCancelled();
+		} catch (Throwable throwable) {
+			EventHelper.error(throwable, "Failed call BlockBreakEvent: [Player: {}, X:{}, Y:{}, Z:{}]", String.valueOf(player), x, y, z);
 			return true;
 		}
 	}
 
-	public static boolean cantPlace(
-			@Nonnull EntityPlayer player, @Nonnull BlockPos pos, @Nonnull IBlockState blockState)
-	{
-		try
-		{
-			return INTEGRATION.cantPlace(player, pos, blockState);
-		}
-		catch (Throwable throwable)
-		{
-			LOGGER.error("Failed call place block event: [Player: {}, Pos: {}, Block State: {}]", player, pos, blockState);
-			if (EventHelperMod.debug)
-				throwable.printStackTrace();
+	public static boolean cantBreak(@Nonnull EntityPlayer player, double x, double y, double z) {
+		int xx = floor_double(x);
+		int yy = floor_double(y);
+		int zz = floor_double(z);
+		return cantBreak(player, xx, yy, zz);
+	}
+
+	public static boolean cantDamage(@Nonnull Entity attacker, @Nonnull Entity victim) {
+		if (isDummyBuild)
+			return false;
+
+		try {
+			EntityDamageByEntityEvent event = new EntityDamageByEntityEvent(toBukkitEntity(attacker), toBukkitEntity(victim), DamageCause.ENTITY_ATTACK, 0D);
+			EventHelper.callEvent(event);
+			return event.isCancelled();
+		} catch (Throwable throwable) {
+			EventHelper.error(throwable, "Failed call EntityDamageByEntityEvent: [Attacker: {}, Victim: {}]", String.valueOf(attacker), String.valueOf(victim));
 			return true;
 		}
 	}
 
-	public static boolean cantReplace(
-			@Nonnull EntityPlayer player, @Nonnull BlockPos pos, @Nonnull IBlockState blockState)
-	{
-		try
-		{
-			return INTEGRATION.cantReplace(player, pos, blockState);
-		}
-		catch (Throwable throwable)
-		{
-			LOGGER.error("Failed call replace block event: [Player: {}, Pos: {}, Block State: {}]", player, pos, blockState);
-			if (EventHelperMod.debug)
-				throwable.printStackTrace();
+	public static boolean cantInteract(@Nonnull EntityPlayer player, @Nullable ItemStack stack, int x, int y, int z, @Nonnull ForgeDirection side) {
+		if (isDummyBuild)
+			return false;
+
+		try {
+			Player bPlayer = toBukkitEntity(player);
+			PlayerInteractEvent event = new PlayerInteractEvent(bPlayer, Action.RIGHT_CLICK_BLOCK, toBukkitItemStackMirror(stack), bPlayer.getWorld().getBlockAt(x, y, z), toBukkitFace(side));
+			EventHelper.callEvent(event);
+			return event.isCancelled();
+		} catch (Throwable throwable) {
+			EventHelper.error(throwable, "Failed call PlayerInteractEvent: [Player: {}, Item: {}, X:{}, Y:{}, Z:{}, Side: {}]", String.valueOf(player), String.valueOf(stack), x, y, z, String.valueOf(side));
 			return true;
 		}
 	}
 
-	public static boolean cantAttack(@Nonnull EntityPlayer player, @Nonnull Entity victim)
-	{
-		try
-		{
-			return INTEGRATION.cantAttack(player, victim);
-		}
-		catch (Throwable throwable)
-		{
-			LOGGER.error("Failed call attack entity event: [Player: {}, Victim: {}]", player, victim);
-			if (EventHelperMod.debug)
-				throwable.printStackTrace();
+	public static boolean cantFromTo(@Nonnull World world, int fromX, int fromY, int fromZ, int toX, int toY, int toZ) {
+		if (isDummyBuild)
+			return false;
+
+		try {
+			org.bukkit.World bWorld = toBukkitWorld(world);
+			BlockFromToEvent event = new BlockFromToEvent(bWorld.getBlockAt(fromX, fromY, fromZ), bWorld.getBlockAt(toX, toY, toZ));
+			EventHelper.callEvent(event);
+			return event.isCancelled();
+		} catch (Throwable throwable) {
+			EventHelper.error(throwable, "Failed call BlockFromToEvent: [FromX: {}, FromY: {}, FromZ: {}, ToX: {}, ToY: {}, ToZ: {}]", fromX, fromY, fromZ, toX, toY, toZ);
 			return true;
 		}
 	}
 
-	public static boolean cantInteract(
-			@Nonnull EntityPlayer player,
-			@Nonnull EnumHand hand, @Nonnull BlockPos targetPos, @Nonnull EnumFacing targetSide)
-	{
-		try
-		{
-			return INTEGRATION.cantInteract(player, hand, targetPos, targetSide);
-		}
-		catch (Throwable throwable)
-		{
-			LOGGER.error("Failed call interact event: [Player: {}, Hand: {}, Pos: {}, Side: {}]", player, hand, targetPos, targetSide);
-			if (EventHelperMod.debug)
-				throwable.printStackTrace();
+	public static boolean cantFromTo(@Nonnull World world, int fromX, int fromY, int fromZ, @Nonnull ForgeDirection direction) {
+		if (isDummyBuild)
+			return false;
+
+		try {
+			org.bukkit.World bWorld = toBukkitWorld(world);
+			BlockFromToEvent event = new BlockFromToEvent(bWorld.getBlockAt(fromX, fromY, fromZ), toBukkitFace(direction));
+			EventHelper.callEvent(event);
+			return event.isCancelled();
+		} catch (Throwable throwable) {
+			EventHelper.error(throwable, "Failed call BlockFromToEvent: [FromX: {}, FromY: {}, FromZ: {}, Direction: {}]", fromX, fromY, fromZ, String.valueOf(direction));
 			return true;
 		}
 	}
 
-	public static boolean cantInteract(
-			@Nonnull EntityPlayer player,
-			@Nonnull EnumHand hand,
-			@Nonnull BlockPos interactionPos, @Nonnull BlockPos targetPos, @Nonnull EnumFacing targetSide)
-	{
-		try
-		{
-			return INTEGRATION.cantInteract(player, hand, interactionPos, targetPos, targetSide);
-		}
-		catch (Throwable throwable)
-		{
-			LOGGER.error("Failed call interact event: [Player: {}, Hand: {}, Pos: {}, Side: {}]", player, hand, targetPos, targetSide);
-			if (EventHelperMod.debug)
-				throwable.printStackTrace();
+	public static boolean cantTeleport(EntityPlayer player, World toWorld, double toX, double toY, double toZ) {
+		if (isDummyBuild)
+			return false;
+
+		return cantTeleport0(player, toWorld, toX, toY, toZ, ConvertUtils::toBukkitEntity, PlayerTeleportEvent::new, PlayerTeleportEvent.class);
+	}
+
+	public static boolean cantTeleport(EntityPlayer player, World fromWorld, double fromX, double fromY, double fromZ, World toWorld, double toX, double toY, double toZ) {
+		if (isDummyBuild)
+			return false;
+		return cantTeleport0(player, fromWorld, fromX, fromY, fromZ, toWorld, toX, toY, toZ, ConvertUtils::toBukkitEntity, PlayerTeleportEvent::new, PlayerTeleportEvent.class);
+	}
+
+	public static boolean cantTeleport(Entity entity, World toWorld, double toX, double toY, double toZ) {
+		if (isDummyBuild)
+			return false;
+
+		if (entity instanceof EntityPlayer)
+			return cantTeleport((EntityPlayer) entity, toWorld, toX, toY, toZ);
+		return cantTeleport0(entity, toWorld, toX, toY, toZ, ConvertUtils::toBukkitEntity, EntityTeleportEvent::new, EntityTeleportEvent.class);
+	}
+
+	public static boolean cantTeleport(Entity entity, World fromWorld, double fromX, double fromY, double fromZ, World toWorld, double toX, double toY, double toZ) {
+		if (isDummyBuild)
+			return false;
+
+		if (entity instanceof EntityPlayer)
+			return cantTeleport((EntityPlayer) entity, fromWorld, fromX, fromY, fromZ, toWorld, toX, toY, toZ);
+		return cantTeleport0(entity, fromWorld, fromX, fromY, fromZ, toWorld, toX, toY, toZ, ConvertUtils::toBukkitEntity, EntityTeleportEvent::new, EntityTeleportEvent.class);
+	}
+
+	private static <E extends Entity, BE extends org.bukkit.entity.Entity, EV extends Event & Cancellable> boolean cantTeleport0(E entity, World toWorld, double toX, double toY, double toZ, ThrowableFunction<? super E, ? extends BE, ?> entityConverter, TriFunction<? super BE, ? super Location, ? super Location, ? extends EV> eventConstuctor, Class<? extends EV> eventClass) {
+		if (isDummyBuild)
+			return false;
+		try {
+			BE bukkitEntity = entityConverter.apply(entity);
+			Location from = bukkitEntity.getLocation();
+			Location to = new Location(ConvertUtils.toBukkitWorld(toWorld), toX, toY, toZ, from.getYaw(), from.getPitch());
+			EV event = eventConstuctor.apply(bukkitEntity, from, to);
+			Bukkit.getPluginManager().callEvent(event);
+			return event.isCancelled();
+		} catch (Throwable throwable) {
+			EventHelper.error(throwable, "Failed call {}: [Entity: {}, ToWorld: {}, ToX: {}, ToY: {}, ToZ: {}]", eventClass.getSimpleName(), String.valueOf(entity), toWorld.getWorldInfo().getWorldName(), toX, toY, toZ);
 			return true;
 		}
 	}
 
-	public static boolean cantInteract(@Nonnull EntityPlayer player, @Nonnull IIntegration.BlockInteractParams params)
-	{
-		try
-		{
-			return INTEGRATION.cantInteract(player, params);
-		}
-		catch (Throwable throwable)
-		{
-			LOGGER.error("Failed call interact event: [Player: {}, Params: {}]", player, params);
-			if (EventHelperMod.debug)
-				throwable.printStackTrace();
+	private static <E extends Entity, BE extends org.bukkit.entity.Entity, EV extends Event & Cancellable> boolean cantTeleport0(E entity, World fromWorld, double fromX, double fromY, double fromZ, World toWorld, double toX, double toY, double toZ, ThrowableFunction<? super E, ? extends BE, ?> entityConverter, TriFunction<? super BE, ? super Location, ? super Location, ? extends EV> eventConstuctor, Class<? extends EV> eventClass) {
+		if (isDummyBuild)
+			return false;
+
+		try {
+			BE bukkitEntity = entityConverter.apply(entity);
+			Location entityLocation = bukkitEntity.getLocation();
+			Location from = new Location(ConvertUtils.toBukkitWorld(fromWorld), fromX, fromY, fromZ, entityLocation.getYaw(), entityLocation.getPitch());
+			Location to = new Location(ConvertUtils.toBukkitWorld(toWorld), toX, toY, toZ, from.getYaw(), from.getPitch());
+			EV event = eventConstuctor.apply(bukkitEntity, from, to);
+			Bukkit.getPluginManager().callEvent(event);
+			return event.isCancelled();
+		} catch (Throwable throwable) {
+			EventHelper.error(throwable, "Failed call {}: [Entity: {}, FromWorld: {}, FromX: {}, FromY: {}, FromZ: {}, ToWorld: {}, ToX: {}, ToY: {}, ToZ: {}]", eventClass.getSimpleName(), String.valueOf(entity), fromWorld.getWorldInfo().getWorldName(), fromX, fromY, fromZ, toWorld.getWorldInfo().getWorldName(), toX, toY, toZ);
 			return true;
 		}
 	}
 
-	public static boolean hasPermission(@Nonnull EntityPlayer player, @Nonnull String permission)
-	{
-		try
-		{
-			return INTEGRATION.hasPermission(player, permission);
+	public static boolean isInPrivate(@Nonnull World world, int x, int y, int z) {
+		if (isDummyBuild)
+			return false;
+
+		try {
+			return InjectionManager.isInPrivate(toBukkitWorld(world), x, y, z);
+		} catch (Throwable throwable) {
+			EventHelper.error(throwable, "Failed check private: [World: {}, X: {}, Y: {}, Z: {}]", world.getWorldInfo().getWorldName(), x, y, z);
+			return true;
 		}
-		catch (Throwable throwable)
-		{
-			LOGGER.error("Failed checking permission: [Player: {}, Permission: {}]", player, permission);
-			if (EventHelperMod.debug)
-				throwable.printStackTrace();
+	}
+
+	public static boolean isPrivateMember(@Nonnull EntityPlayer player, double x, double y, double z) {
+		int xx = floor_double(x);
+		int yy = floor_double(y);
+		int zz = floor_double(z);
+		return isPrivateMember(player, xx, yy, zz);
+	}
+
+	public static boolean isPrivateMember(@Nonnull EntityPlayer player, int x, int y, int z) {
+		if (isDummyBuild)
+			return true;
+
+		try {
+			return InjectionManager.isPrivateMember(toBukkitEntity(player), x, y, z);
+		} catch (Throwable throwable) {
+			EventHelper.error(throwable, "Failed check private member: [Player: {}, X: {}, Y: {}, Z: {}]", String.valueOf(player), x, y, z);
+			return true;
+		}
+	}
+
+	public static boolean isPrivateOwner(@Nonnull EntityPlayer player, double x, double y, double z) {
+		int xx = floor_double(x);
+		int yy = floor_double(y);
+		int zz = floor_double(z);
+		return isPrivateOwner(player, xx, yy, zz);
+	}
+
+	public static boolean isPrivateOwner(@Nonnull EntityPlayer player, int x, int y, int z) {
+		if (isDummyBuild)
+			return true;
+
+		try {
+			return InjectionManager.isPrivateOwner(toBukkitEntity(player), x, y, z);
+		} catch (Throwable throwable) {
+			EventHelper.error(throwable, "Failed check private owner: [Player: {}, X: {}, Y: {}, Z: {}]", String.valueOf(player), x, y, z);
+			return true;
+		}
+	}
+
+	public static boolean isInPrivate(@Nonnull Entity entity) {
+		int x = floor_double(entity.posX);
+		int y = floor_double(entity.posY);
+		int z = floor_double(entity.posZ);
+		return isInPrivate(entity.worldObj, x, y, z);
+	}
+
+	public static boolean hasPermission(@Nullable EntityPlayer player, @Nonnull String permission) {
+		if (player == null)
+			return false;
+
+		if (isDummyBuild)
+			return IntegrityHelper.isPlayerOP(player);
+
+		try {
+			Player bPlayer = toBukkitEntity(player);
+			return bPlayer != null && bPlayer.hasPermission(permission);
+		} catch (Throwable throwable) {
+			EventHelper.error(throwable, "Failed checking permission: [Player: {}, Permission: {}]", player, permission);
 			return false;
 		}
 	}
 
-	public static boolean hasPermission(@Nonnull UUID playerId, @Nonnull String permission)
-	{
-		try
-		{
-			return INTEGRATION.hasPermission(playerId, permission);
-		}
-		catch (Throwable throwable)
-		{
-			LOGGER.error("Failed checking permission: [Player name: {}, Permission: {}]", playerId, permission);
-			if (EventHelperMod.debug)
-				throwable.printStackTrace();
+	public static boolean hasPermission(@Nullable UUID playerId, @Nonnull String permission) {
+		if (playerId == null)
+			return false;
+
+		if (isDummyBuild)
+			return IntegrityHelper.isPlayerOP(playerId);
+
+		try {
+			Player player = Bukkit.getPlayer(playerId);
+			return player != null && player.hasPermission(permission);
+		} catch (Throwable throwable) {
+			EventHelper.error(throwable, "Failed checking permission: [Player name: {}, Permission: {}]", playerId, permission);
 			return false;
 		}
 	}
 
-	public static boolean hasPermission(@Nonnull String playerName, @Nonnull String permission)
-	{
-		try
-		{
-			return INTEGRATION.hasPermission(playerName, permission);
-		}
-		catch (Throwable throwable)
-		{
-			LOGGER.error("Failed checking permission: [Player UUID: {}, Permission: {}]", playerName, permission);
-			if (EventHelperMod.debug)
-				throwable.printStackTrace();
+	public static boolean hasPermission(@Nullable String playerName, @Nonnull String permission) {
+		if (Strings.isNullOrEmpty(playerName))
+			return false;
+
+		if (isDummyBuild)
+			return IntegrityHelper.isPlayerOP(playerName);
+
+		try {
+			Player player = Bukkit.getPlayerExact(playerName);
+			return player != null && player.hasPermission(permission);
+		} catch (Throwable throwable) {
+			EventHelper.error(throwable, "Failed checking permission: [Player UUID: {}, Permission: {}]", playerName, permission);
 			return false;
 		}
-	}
-
-	public static ICauseStackManager getCauseStackManager()
-	{
-		ICauseStackManager specificCauseStackManager = INTEGRATION.getSpecificCauseStackManager();
-		return specificCauseStackManager == null ? DummyCauseStackManager.INSTANCE : specificCauseStackManager;
-	}
-
-	static
-	{
-		IIntegration integration = null;
-		switch (EventHelperMod.integrationType)
-		{
-			case AUTO:
-				integration = SpongeIntegration.getIntegration();
-				if (integration == null)
-					integration = BukkitIntegration.getIntegration();
-				break;
-			case SPONGE:
-				integration = SpongeIntegration.getIntegration();
-				break;
-			case BUKKIT:
-				integration = BukkitIntegration.getIntegration();
-				break;
-		}
-		INTEGRATION = Objects.requireNonNull(integration, "Integration not found");
 	}
 }

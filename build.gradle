@@ -1,49 +1,87 @@
 buildscript {
 	repositories {
-		jcenter()
-		maven { url = "http://files.minecraftforge.net/maven" }
+		mavenCentral()
+		maven {
+			name = "forge"
+			url = "http://files.minecraftforge.net/maven"
+		}
+		maven {
+			name = "sonatype"
+			url = "https://oss.sonatype.org/content/repositories/snapshots/"
+		}
 	}
 	dependencies {
-		classpath 'net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT'
+		classpath 'net.minecraftforge.gradle:ForgeGradle:1.2-SNAPSHOT'
 	}
 }
-apply plugin: 'net.minecraftforge.gradle.forge'
 
 repositories {
-	maven {
-        name = 'sponge'
-        url = 'http://repo.spongepowered.org/maven'
-    }
-	maven {
-        name = 'spigot'
-        url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots'
-    }
+	flatDir {
+		dirs 'lib'
+	}
 }
 
-version = "1.12.2-2.8.1"
-group= "com.gamerforea"
-archivesBaseName = "EventHelper"
+apply plugin: 'forge'
 
-sourceCompatibility = targetCompatibility = '1.8'
-compileJava {
-	sourceCompatibility = targetCompatibility = '1.8'
-}
+[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
+sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
+
+version = mod_version
+group = mod_group
+archivesBaseName = mod_archives_name
 
 minecraft {
-	version = "1.12.2-14.23.5.2775"
-	runDir = "run"
-	mappings = "snapshot_20171003"
+	version = "1.7.10-10.13.4.1614-1.7.10"
+	runDir = "eclipse"
 	replace "@VERSION@", project.version
+	replace 'BuildController.internalDummyBuildState()', isDummyBuild
 }
 
 dependencies {
-	compile 'org.spongepowered:spongeapi:7.1.0'
-	compile 'org.bukkit:bukkit:1.12.2-R0.1-SNAPSHOT'
+	compile name: 'bukkit-1.7.10'
+	compile name: 'worldedit-6.1'
+	compile name: 'worldguard-6.1'
+	compile name: 'GriefPreventionPlus-13.3'
+}
+
+processResources {
+
+    from(sourceSets.main.resources.srcDirs) {
+        include 'mcmod.info'
+        expand 'version': project.version,
+		'mod_id': mod_id,
+		'mod_name': mod_name,
+		'mod_author': mod_author,
+		'mod_description': mod_description,
+		'isDummyBuild': isDummyBuild,
+		'mc_version': mc_version,
+		'mod_version': mod_version,
+		'mod_icon': mod_icon
+    }
+
+    from(sourceSets.main.resources.srcDirs) {
+        exclude 'mcmod.info'
+    }
 }
 
 task devJar(type: Jar) {
-	classifier = 'dev'
+	if (isDummyBuild.toBoolean()) {
+		classifier = 'dummydev'
+	} else {
+		classifier = 'dev'
+	}
+	
 	from sourceSets.main.output
+}
+
+jar {
+	doFirst {
+		if (isDummyBuild.toBoolean()) {
+			classifier = 'dummyorigin'
+		} else {
+			classifier = 'origin'
+		}
+	}
 }
 
 task sourcesJar(type: Jar) {
@@ -51,14 +89,21 @@ task sourcesJar(type: Jar) {
 	from sourceSets.main.allSource
 }
 
-artifacts {
-	archives devJar
-	archives sourcesJar
+task buildDummy(type: GradleBuild) {
+    tasks = ['build']
+    startParameter.projectProperties = ['isDummyBuild': 'true']
 }
 
-jar {
-	manifest {
-		attributes 'FMLCorePlugin': 'com.gamerforea.eventhelper.coremod.CoreMod'
-		attributes 'FMLCorePluginContainsFMLMod': 'true'
+task buildAll() {}
+
+buildAll.dependsOn('build')
+buildAll.finalizedBy('buildDummy')
+
+
+artifacts {
+	archives devJar
+	
+	if (!isDummyBuild.toBoolean()) {
+		archives sourcesJar
 	}
 }

@@ -1,18 +1,14 @@
 package com.gamerforea.eventhelper.fake;
 
-import com.gamerforea.eventhelper.integration.IIntegration;
 import com.gamerforea.eventhelper.util.EventUtils;
 import com.gamerforea.eventhelper.util.ExplosionByPlayer;
 import com.gamerforea.eventhelper.util.FastUtils;
 import com.google.common.base.Preconditions;
 import com.mojang.authlib.GameProfile;
-import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
-import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.FakePlayer;
 
@@ -23,17 +19,22 @@ import java.util.UUID;
 
 public abstract class FakePlayerContainer
 {
-	private static final String NBT_FAKE_NAME = "eventhelper_fakeName";
-	private static final String NBT_FAKE_ID_MOST = "eventhelper_fakeUUID_Most";
-	private static final String NBT_FAKE_ID_LEAST = "eventhelper_fakeUUID_Least";
-
+	private static final String NBT_OWNER_NAME = "eventhelper_fakeName";
+	private static final String NBT_OWNER_UUID = "eventhelper_fakeUUID";
 	private final GameProfile modFakeProfile;
 	private FakePlayer modFake;
 
-	private GameProfile profile;
-	private FakePlayer fakePlayer;
+	@Nullable
+	public GameProfile profile;
+	private FakePlayer player;
 
 	private WeakReference<EntityPlayer> realPlayer;
+
+	protected FakePlayerContainer(@Nonnull FakePlayer modFake)
+	{
+		this(modFake.getGameProfile());
+		this.modFake = modFake;
+	}
 
 	protected FakePlayerContainer(@Nonnull FakePlayerContainer fake)
 	{
@@ -48,63 +49,58 @@ public abstract class FakePlayerContainer
 		this.modFakeProfile = modFakeProfile;
 	}
 
-	@Nonnull
 	public abstract World getWorld();
 
-	@Nonnull
-	public final EntityPlayer getPlayer()
+	public final EntityPlayer get()
 	{
 		if (this.realPlayer != null)
 		{
 			EntityPlayer p = this.realPlayer.get();
-			if (p == null)
+			if (p == null || p instanceof EntityPlayerMP && ((EntityPlayerMP) p).playerNetServerHandler == null)
 				this.realPlayer = null;
 			else
 				return p;
 		}
 
-		return this.getFakePlayer();
+		return this.getPlayer();
 	}
 
-	@Nonnull
-	public final FakePlayer getFakePlayer()
+	public final FakePlayer getPlayer()
 	{
-		if (this.fakePlayer != null)
-			return FastUtils.getFake(this.getWorld(), this.fakePlayer);
+		if (this.player != null)
+			return FastUtils.getFake(this.getWorld(), this.player);
 		if (this.profile != null)
-			return this.fakePlayer = FastUtils.getFake(this.getWorld(), this.profile);
+			return this.player = FastUtils.getFake(this.getWorld(), this.profile);
 		if (this.modFake != null)
 			return FastUtils.getFake(this.getWorld(), this.modFake);
 		return this.modFake = FastUtils.getFake(this.getWorld(), this.modFakeProfile);
 	}
 
-	public final boolean setRealPlayer(@Nullable Entity entity)
+	public final void setRealPlayer(@Nullable Entity entity)
 	{
-		return entity instanceof EntityPlayer && this.setRealPlayer((EntityPlayer) entity);
+		this.setRealPlayer(entity instanceof EntityPlayer ? (EntityPlayer) entity : null);
 	}
 
-	public final boolean setRealPlayer(@Nullable EntityPlayer player)
+	public final void setRealPlayer(@Nullable EntityPlayer player)
 	{
-		if (this.setProfile(player))
+		this.reset();
+		if (player != null)
 		{
-			if (!(player instanceof FakePlayer))
+			this.setProfile(player);
+			if (this.profile != null && !(player instanceof FakePlayer))
 				this.realPlayer = new WeakReference<>(player);
-			return true;
 		}
-		return false;
 	}
 
-	public final boolean setParent(@Nullable FakePlayerContainer container)
+	public final void setParent(@Nullable FakePlayerContainer container)
 	{
+		this.reset();
 		if (container != null && container.profile != null)
 		{
-			this.reset();
 			this.profile = container.profile;
-			this.fakePlayer = container.fakePlayer;
+			this.player = container.player;
 			this.realPlayer = container.realPlayer;
-			return true;
 		}
-		return false;
 	}
 
 	@Nullable
@@ -113,65 +109,35 @@ public abstract class FakePlayerContainer
 		return this.profile;
 	}
 
-	public final boolean setProfile(@Nullable Entity entity)
+	public final void setProfile(@Nullable Entity entity)
 	{
-		if (entity instanceof EntityPlayer)
-			return this.setProfile((EntityPlayer) entity);
-		return false;
+		this.setProfile(entity instanceof EntityPlayer ? (EntityPlayer) entity : null);
 	}
 
-	public final boolean setProfile(@Nullable EntityPlayer player)
+	public final void setProfile(@Nullable EntityPlayer player)
 	{
-		return player != null && this.setProfile(player.getGameProfile());
+		this.setProfile(player == null ? null : player.getGameProfile());
 	}
 
-	public final boolean setProfile(@Nullable GameProfile profile)
+	public final void setProfile(@Nullable GameProfile profile)
 	{
-		if (profile != null && profile.isComplete())
-		{
-			this.reset();
-			this.profile = profile;
-			return true;
-		}
-		return false;
+		this.reset();
+		this.profile = profile == null || !profile.isComplete() ? null : profile;
 	}
 
-	public final boolean cantBreak(@Nonnull BlockPos pos)
+	public final boolean cantBreak(int x, int y, int z)
 	{
-		return EventUtils.cantBreak(this.getPlayer(), pos);
+		return EventUtils.cantBreak(this.get(), x, y, z);
 	}
 
-	public final boolean cantPlace(@Nonnull BlockPos pos, @Nonnull IBlockState blockState)
+	public final boolean cantBreak(double x, double y, double z)
 	{
-		return EventUtils.cantPlace(this.getPlayer(), pos, blockState);
+		return EventUtils.cantBreak(this.get(), x, y, z);
 	}
 
-	public final boolean cantReplace(@Nonnull BlockPos pos, @Nonnull IBlockState blockState)
+	public final boolean cantDamage(@Nonnull Entity target)
 	{
-		return EventUtils.cantReplace(this.getPlayer(), pos, blockState);
-	}
-
-	public final boolean cantAttack(@Nonnull Entity target)
-	{
-		return EventUtils.cantAttack(this.getPlayer(), target);
-	}
-
-	public final boolean cantInteract(
-			@Nonnull EnumHand hand, @Nonnull BlockPos targetPos, @Nonnull EnumFacing targetSide)
-	{
-		return EventUtils.cantInteract(this.getPlayer(), hand, targetPos, targetSide);
-	}
-
-	public final boolean cantInteract(
-			@Nonnull EnumHand hand,
-			@Nonnull BlockPos interactionPos, @Nonnull BlockPos targetPos, @Nonnull EnumFacing targetSide)
-	{
-		return EventUtils.cantInteract(this.getPlayer(), hand, interactionPos, targetPos, targetSide);
-	}
-
-	public final boolean cantInteract(@Nonnull IIntegration.BlockInteractParams params)
-	{
-		return EventUtils.cantInteract(this.getPlayer(), params);
+		return EventUtils.cantDamage(this.get(), target);
 	}
 
 	@Nonnull
@@ -188,36 +154,39 @@ public abstract class FakePlayerContainer
 		return ExplosionByPlayer.newExplosion(this, this.getWorld(), entityIn, x, y, z, strength, isFlaming, isSmoking);
 	}
 
+	private void reset()
+	{
+		this.profile = null;
+		this.player = null;
+		this.realPlayer = null;
+	}
+
 	public final void writeToNBT(NBTTagCompound nbt)
 	{
 		if (this.profile != null)
 		{
-			nbt.setString(NBT_FAKE_NAME, this.profile.getName());
-			UUID id = this.profile.getId();
-			nbt.setLong(NBT_FAKE_ID_MOST, id.getMostSignificantBits());
-			nbt.setLong(NBT_FAKE_ID_LEAST, id.getLeastSignificantBits());
+			nbt.setString(NBT_OWNER_NAME, this.profile.getName());
+			nbt.setString(NBT_OWNER_UUID, this.profile.getId().toString());
 		}
 	}
 
 	public final void readFromNBT(NBTTagCompound nbt)
 	{
-		String name = nbt.getString(NBT_FAKE_NAME);
-		if (!name.isEmpty())
-		{
-			long most = nbt.getLong(NBT_FAKE_ID_MOST);
-			long least = nbt.getLong(NBT_FAKE_ID_LEAST);
-			if (least != 0 || most != 0)
-			{
-				UUID id = new UUID(most, least);
-				this.profile = new GameProfile(id, name);
-			}
-		}
+		this.profile = readProfile(nbt, NBT_OWNER_NAME, NBT_OWNER_UUID);
+		if (this.profile == null)
+			this.profile = readProfile(nbt, "ownerName", "ownerUUID");
 	}
 
-	private void reset()
+	private static GameProfile readProfile(NBTTagCompound nbt, String nameKey, String uuidKey)
 	{
-		this.profile = null;
-		this.fakePlayer = null;
-		this.realPlayer = null;
+		String name = nbt.getString(nameKey);
+		if (!name.isEmpty())
+		{
+			String uuid = nbt.getString(uuidKey);
+			if (!uuid.isEmpty())
+				return new GameProfile(UUID.fromString(uuid), name);
+		}
+
+		return null;
 	}
 }
