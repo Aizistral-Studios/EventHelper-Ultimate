@@ -42,6 +42,7 @@ dependencies {
 	compile name: 'worldedit-6.1'
 	compile name: 'worldguard-6.1'
 	compile name: 'GriefPreventionPlus-13.3'
+	compile files('lib/DreamChunkLoad-1.0.jar')
 }
 
 processResources {
