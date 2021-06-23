@@ -68,10 +68,11 @@ public final class SpongeIntegration
 		}
 		catch (NoClassDefFoundError | ClassNotFoundException e)
 		{
-			if (EventHelperMod.debug)
+			if (EventHelperMod.debug) {
 				EventHelperMod.LOGGER.info("SpongeAPI not found", e);
-			else
+			} else {
 				EventHelperMod.LOGGER.info("SpongeAPI not found");
+			}
 		}
 
 		INTEGRATION = integration;
@@ -93,8 +94,9 @@ public final class SpongeIntegration
 			try (CauseStackManager.StackFrame stackFrame = Sponge.getGame().getCauseStackManager().pushCauseFrame())
 			{
 				stackFrame.pushCause(player);
-				if (player instanceof FakePlayer && player instanceof Player)
+				if (player instanceof FakePlayer && player instanceof Player) {
 					stackFrame.addContext(EventContextKeys.FAKE_PLAYER, (Player) player);
+				}
 
 				Cause cause = stackFrame.getCurrentCause();
 				World world = getWorld(player.world);
@@ -110,8 +112,9 @@ public final class SpongeIntegration
 			try (CauseStackManager.StackFrame stackFrame = Sponge.getGame().getCauseStackManager().pushCauseFrame())
 			{
 				stackFrame.pushCause(player);
-				if (player instanceof FakePlayer && player instanceof Player)
+				if (player instanceof FakePlayer && player instanceof Player) {
 					stackFrame.addContext(EventContextKeys.FAKE_PLAYER, (Player) player);
+				}
 
 				Cause cause = stackFrame.getCurrentCause();
 				World world = getWorld(player.world);
@@ -134,8 +137,9 @@ public final class SpongeIntegration
 			try (CauseStackManager.StackFrame stackFrame = Sponge.getGame().getCauseStackManager().pushCauseFrame())
 			{
 				stackFrame.pushCause(player);
-				if (player instanceof FakePlayer && player instanceof Player)
+				if (player instanceof FakePlayer && player instanceof Player) {
 					stackFrame.addContext(EventContextKeys.FAKE_PLAYER, (Player) player);
+				}
 
 				Cause cause = stackFrame.getCurrentCause();
 				org.spongepowered.api.entity.Entity spongeVictim = (org.spongepowered.api.entity.Entity) victim;
@@ -151,8 +155,9 @@ public final class SpongeIntegration
 			boolean recursionWarning = EventHelperMod.recursionProtectionWarning;
 			if ((recursionPolicy != RecursionProtectionPolicy.IGNORE || recursionWarning) && this.blockInteractStack.contains(params))
 			{
-				if (recursionWarning)
+				if (recursionWarning) {
 					EventHelperMod.LOGGER.warn("Recursive cantInteract call: [Player: {}, Params: {}, Params stack: {}]", player, params, this.blockInteractStack, new Throwable("Stack trace"));
+				}
 
 				switch (recursionPolicy)
 				{
@@ -170,11 +175,13 @@ public final class SpongeIntegration
 			try (CauseStackManager.StackFrame stackFrame = Sponge.getGame().getCauseStackManager().pushCauseFrame())
 			{
 				stackFrame.pushCause(player);
-				if (player instanceof FakePlayer && player instanceof Player)
+				if (player instanceof FakePlayer && player instanceof Player) {
 					stackFrame.addContext(EventContextKeys.FAKE_PLAYER, (Player) player);
+				}
 
-				if (this.forceRegionProtectionKey == null)
+				if (this.forceRegionProtectionKey == null) {
 					this.forceRegionProtectionKey = (Optional) Sponge.getRegistry().getType(EventContextKey.class, "worldguard:force_region_protection");
+				}
 				this.forceRegionProtectionKey.ifPresent(key -> stackFrame.addContext(key, Boolean.TRUE));
 
 				Cause cause = stackFrame.getCurrentCause();
@@ -187,27 +194,30 @@ public final class SpongeIntegration
 				if (params.getAction() == BlockInteractAction.RIGHT_CLICK)
 				{
 					InteractBlockEvent.Secondary event;
-					if (params.getHand() == EnumHand.MAIN_HAND)
+					if (params.getHand() == EnumHand.MAIN_HAND) {
 						event = createInteractBlockEventSecondaryMainHand(cause, Tristate.UNDEFINED, Tristate.UNDEFINED, Tristate.UNDEFINED, Tristate.UNDEFINED, handType, interactionPoint, block, targetSideSponge);
-					else
+					} else {
 						event = createInteractBlockEventSecondaryOffHand(cause, Tristate.UNDEFINED, Tristate.UNDEFINED, Tristate.UNDEFINED, Tristate.UNDEFINED, handType, interactionPoint, block, targetSideSponge);
+					}
 					return post(event) || event.getUseBlockResult() == Tristate.FALSE || event.getUseItemResult() == Tristate.FALSE;
 				}
 				else
 				{
 					Event event;
-					if (params.getHand() == EnumHand.MAIN_HAND)
+					if (params.getHand() == EnumHand.MAIN_HAND) {
 						event = createInteractBlockEventPrimaryMainHand(cause, handType, interactionPoint, block, targetSideSponge);
-					else
+					} else {
 						event = createInteractBlockEventPrimaryOffHand(cause, handType, interactionPoint, block, targetSideSponge);
+					}
 					return post(event);
 				}
 			}
 			finally
 			{
 				BlockInteractParams lastParams = this.blockInteractStack.pop();
-				if (lastParams != params)
+				if (lastParams != params) {
 					EventHelperMod.LOGGER.error("Illegal block interact params stack top entry", new IllegalStateException());
+				}
 			}
 		}
 

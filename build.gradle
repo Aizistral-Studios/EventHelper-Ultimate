@@ -10,10 +10,9 @@ buildscript {
 apply plugin: 'net.minecraftforge.gradle.forge'
 
 repositories {
-	maven {
-        name = 'sponge'
-        url = 'http://repo.spongepowered.org/maven'
-    }
+	flatDir {
+		dirs 'deps'
+	}
 	maven {
         name = 'spigot'
         url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots'
@@ -37,7 +36,7 @@ minecraft {
 }
 
 dependencies {
-	compile 'org.spongepowered:spongeapi:7.1.0'
+	compile 'org.spongepowered:spongeapi:7.1.0-shaded'
 	compile 'org.bukkit:bukkit:1.12.2-R0.1-SNAPSHOT'
 }
 

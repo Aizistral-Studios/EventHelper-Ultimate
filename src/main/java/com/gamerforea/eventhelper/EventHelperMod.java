@@ -6,6 +6,8 @@ import com.gamerforea.eventhelper.config.ConfigEnum;
 import com.gamerforea.eventhelper.config.ConfigUtils;
 import com.gamerforea.eventhelper.integration.IntegrationType;
 import com.gamerforea.eventhelper.integration.RecursionProtectionPolicy;
+import com.gamerforea.eventhelper.util.EventUtils;
+
 import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.Mod.EventHandler;

@@ -4,6 +4,8 @@ import net.minecraftforge.fml.relauncher.IFMLLoadingPlugin;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.integral.eventhelperultimate.BuildController;
+
 import javax.annotation.Nullable;
 import java.util.Map;
 
@@ -20,7 +22,7 @@ public final class CoreMod implements IFMLLoadingPlugin
 	@Override
 	public String[] getASMTransformerClass()
 	{
-		return new String[] { "com.gamerforea.eventhelper.coremod.sponge.EventHelperSpongeClassTransformer" };
+		return BuildController.isDummyBuild ? new String[] {} : new String[] { "com.gamerforea.eventhelper.coremod.sponge.EventHelperSpongeClassTransformer" };
 	}
 
 	@Override
