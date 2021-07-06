@@ -10,5 +10,7 @@ build/t*
 eclipse
 .classpath
 .project
+run
+*.launch
 
 forge*changelog.txt
